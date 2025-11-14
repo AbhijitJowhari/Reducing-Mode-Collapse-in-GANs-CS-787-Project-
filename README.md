@@ -43,8 +43,8 @@ train.py
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/GAN-MoG-Mode-Coverage.git
-   cd GAN-MoG-Mode-Coverage
+   git clone https://github.com/AbhijitJowhari/Reducing-Mode-Collapse-in-GANs-CS-787-Project-.git
+   cd Reducing-Mode-Collapse-in-GANs-CS-787-Project-
    ```
 
 2. **Create a virtual environment:**
