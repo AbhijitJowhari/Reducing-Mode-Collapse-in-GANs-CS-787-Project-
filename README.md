@@ -17,71 +17,16 @@ Despite systematic exploration of four architectural variants, **no tested appro
 
 ---
 
-## Repository Structure
+## File dependencies
 
 ```
-GAN-MoG-Mode-Coverage/
-├── README.md                          # This file
-├── requirements.txt                   # Python dependencies
-├── LICENSE
-├── .gitignore
-│
-├── src/                               # Source code
-│   ├── __init__.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── generator.py              # DCGAN Generator architecture
-│   │   └── discriminator.py          # DCGAN Discriminator architecture
-│   │
-│   ├── training/
-│   │   ├── __init__.py
-│   │   ├── trainer.py                # GANTrainer class with two-stage training
-│   │   ├── config.py                 # GANConfig dataclass
-│   │   └── losses.py                 # Loss functions (adversarial, CE, mode-based)
-│   │
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── mog_sampler.py            # MoG prior sampler
-│   │   └── cifar10_loader.py         # CIFAR-10 data loading utilities
-│   │
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── metrics.py                # IS, FID, mode coverage evaluation
-│   │   ├── visualization.py          # Image grid visualization, generation plots
-│   │   └── checkpointing.py          # Model checkpoint save/load utilities
-│   │
-│   └── classifiers/
-│       ├── __init__.py
-│       └── airbench96.py             # AIRBench96 classifier interface
-│
-├── scripts/
-│   ├── train.py                      # Main training script
-│   ├── evaluate.py                   # Evaluation script (IS, FID, mode coverage)
-│   ├── generate_samples.py           # Generate and visualize samples
-│   └── train_classifier.py           # (Optional) Fine-tune classifier
-│
-├── notebooks/
-│   ├── experiment_analysis.ipynb     # Results analysis and comparison
-│   ├── architecture_comparison.ipynb # Visual comparison of architectures
-│   └── mode_coverage_analysis.ipynb  # Mode coverage statistics
-│
-├── docs/
-│   ├── ARCHITECTURE.md               # Detailed architecture descriptions
-│   ├── RESULTS.md                    # Experimental results and analysis
-│   ├── FUTURE_WORK.md                # Clustering-based approach details
-│   └── report.pdf                    # Full LaTeX report
-│
-├── configs/
-│   ├── arch_a.yaml                   # Configuration for Architecture A
-│   ├── arch_b.yaml                   # Configuration for Architecture B
-│   ├── arch_c.yaml                   # Configuration for Architecture C
-│   └── arch_d.yaml                   # Configuration for Architecture D (best)
-│
-└── outputs/
-    ├── checkpoints/                  # Model weights
-    ├── results/                      # Experimental results (metrics, logs)
-    ├── samples/                      # Generated image samples
-    └── logs/                         # Training logs
+train.py
+    ├── config.py (GANConfig)
+    ├── trainer.py (GANTrainer)
+    │   ├── models.py (Generator, Discriminator)
+    │   └── config.py (GANConfig)
+    ├── MoG.py (CIFAR10MixtureGaussian)
+    └── airbench (AIRBench96 classifier)
 ```
 
 ---
@@ -126,12 +71,12 @@ GAN-MoG-Mode-Coverage/
 
 **Train Architecture D (recommended) with default settings:**
 ```bash
-python scripts/train.py --config configs/arch_d.yaml --output_dir outputs/arch_d
+python train.py --config configs/arch_d.yaml --output_dir outputs/arch_d
 ```
 
 **Train with custom hyperparameters:**
 ```bash
-python scripts/train.py \
+python train.py \
     --config configs/arch_d.yaml \
     --stage1_epochs 50 \
     --stage2_epochs 30 \
@@ -149,43 +94,6 @@ python scripts/train.py \
 --seed                Random seed (default: 42)
 --verbose             Print training progress (default: True)
 ```
-
-### 2. Evaluate Results
-
-**Compute Inception Score and FID:**
-```bash
-python scripts/evaluate.py \
-    --checkpoint outputs/arch_d/checkpoints/stage2_final.pt \
-    --n_samples 5000 \
-    --metrics IS FID mode_coverage
-```
-
-**Output:**
-```
-Inception Score: 6.06 ± 0.24
-FID Score: 50.4
-Mode Coverage: 10/10 classes
-```
-
-### 3. Generate Samples
-
-**Generate 64 sample images:**
-```bash
-python scripts/generate_samples.py \
-    --checkpoint outputs/arch_d/checkpoints/stage2_final.pt \
-    --n_samples 64 \
-    --output samples.png
-```
-
-**Generate class-conditional samples:**
-```bash
-python scripts/generate_samples.py \
-    --checkpoint outputs/arch_d/checkpoints/stage2_final.pt \
-    --n_samples_per_class 5 \
-    --class_conditional true \
-    --output class_conditional_samples.png
-```
-
 ---
 
 ## Architecture Details
@@ -267,13 +175,13 @@ All four architectures yielded similar quantitative performance:
 
 | Architecture | Config | IS | FID |
 |---|---|---|---|
-| DCGAN Baseline | - | 6.08 | 50.2 |
-| Arch A | λ=0.5, n=20 | 6.05 | 50.6 |
-| Arch B | λ=0.5, FF | 6.03 | 50.7 |
-| Arch C | λ=0.5, Conv | 6.04 | 50.5 |
-| **Arch D** | **λ=0.5, I+FF** | **6.06** | **50.4** |
+| DCGAN Baseline | - | 1.08 | 50.2 |
+| Arch A | λ=0.5, n=20 | 1.05 | 50.6 |
+| Arch B | λ=0.5, FF | 1.03 | 50.7 |
+| Arch C | λ=0.5, Conv | 1.04 | 50.5 |
+| Arch D | λ=0.5, I+FF | 1.06 | 50.4 |
 
-**Key Finding:** No architecture substantially outperformed vanilla DCGAN. However, all maintained stable training dynamics.
+**Key Finding:** No architecture substantially outperformed vanilla DCGAN. However, all maintained stable training.
 
 ---
 
@@ -302,13 +210,6 @@ L_mode = KL(P_real || P_gen) + α · ||Σ_real - Σ_gen||_F
 Total Loss:
 L_G = L_adversarial + λ_mode · L_mode
 ```
-
-### Expected Improvements
-
-- Discover actual data modes (unsupervised)
-- Achieve IS > 7.0 on CIFAR-10
-- Ensure all 10 classes represented
-- Generalize to other datasets
 
 ---
 
